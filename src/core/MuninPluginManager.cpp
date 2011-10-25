@@ -29,6 +29,8 @@
 #include "../plugins/disk/HDMuninNodePlugin.h"
 #include "../plugins/disk/SMARTMuninNodePlugin.h"
 #include "../plugins/speedfan/SpeedFanNodePlugin.h"
+#include "../plugins/speedfan/SpeedFanNodePlugin-Temp.h"
+#include "../plugins/speedfan/SpeedFanNodePlugin-Fan.h"
 #include "../plugins/PerfCounterMuninNodePlugin.h"
 #include "../plugins/external/ExternalMuninNodePlugin.h"
 
@@ -72,15 +74,37 @@ MuninPluginManager::MuninPluginManager()
   
   if (g_Config.GetValueB("Plugins", "Cpu", true))
     AddPlugin(new CpuMuninNodePlugin());
-  if (g_Config.GetValueB("Plugins", "HD", true))
-    AddPlugin(new HDMuninNodePlugin());
+  //if (g_Config.GetValueB("Plugins", "HD", true))
+  //  AddPlugin(new HDMuninNodePlugin());
 
   if (g_Config.GetValueB("Plugins", "SMART", false))
-    AddPlugin(new SMARTMuninNodePlugin());
-  
+  {
+	  CSmartReader* pSmartReader = new CSmartReader();
+
+	  pSmartReader->UpdateSMART();
+	  if(pSmartReader->m_ucDrivesWithInfo == 0)
+	  {
+		  delete pSmartReader;
+	  }
+	  else
+	  {
+		  for(int i=0; i < pSmartReader->m_ucDrivesWithInfo; i++) 
+		  {
+			  AddPlugin(new SMARTMuninNodePlugin(pSmartReader ,i));
+		  }
+	  }
+  }
+  //AddPlugin(new SMARTMuninNodePlugin(new CSmartReader() ,0));
+
   if (g_Config.GetValueB("Plugins", "SpeedFan", false))
-    AddPlugin(new SpeedFanNodePlugin());
-  
+  {
+    SpeedFanNodePlugin* pSpeedfanPlugin = new SpeedFanNodePlugin();
+	AddPlugin(new SpeedFanNodePluginFan(pSpeedfanPlugin));
+	AddPlugin(new SpeedFanNodePluginTemp(pSpeedfanPlugin));
+  }
+  //if (g_Config.GetValueB("Plugins", "SpeedFan", false))
+  //  AddPlugin(new SpeedFanNodePlugin());
+
   if (g_Config.GetValueB("Plugins", "External", true)) {
     int externalTimeout = g_Config.GetValueI("Plugins", "ExternalTimeout", 0);
     int externalCount = g_Config.NumValues("ExternalPlugin");
@@ -174,7 +198,7 @@ void MuninPluginManager::TestPlugins()
   char buffer[8096];
   for (size_t i = 0; i < m_Plugins.size(); i++) {
     _Module.LogEvent("Name: %s", m_Plugins[i]->GetName());
-    
+
     buffer[0] = NULL;
     m_Plugins[i]->GetConfig(buffer,  sizeof(buffer));
     _Module.LogEvent("Config:\n%s", buffer);

@@ -12,6 +12,9 @@
 
 CSmartReader::CSmartReader()
 {
+	m_RefCount                = 0;
+	m_LastUpdateTime.QuadPart = 0;
+
 	InitAll();
 	FillAttribGenericDetails();
 }
@@ -19,6 +22,28 @@ CSmartReader::CSmartReader()
 CSmartReader::~CSmartReader()
 {
 	CloseAll();
+}
+
+int CSmartReader::AddRef()
+{
+	return m_RefCount++; 
+}
+
+int CSmartReader::RemoveRef()
+{
+	return --m_RefCount;
+};
+
+// Only update the SMART info every minute
+void CSmartReader::UpdateSMART() 
+{
+  ULARGE_INTEGER curTime;
+  GetSystemTimeAsFileTime((FILETIME *)&curTime);
+  ULONGLONG diffTime = (curTime.QuadPart - m_LastUpdateTime.QuadPart);
+  if (diffTime > (10000000*60)) {
+    ReadSMARTValuesForAllDrives();
+    m_LastUpdateTime.QuadPart = curTime.QuadPart;
+  }
 }
 
 VOID CSmartReader::InitAll()
@@ -38,6 +63,8 @@ BOOL CSmartReader::ReadSMARTValuesForAllDrives()
 
   CloseAll();
 
+  ReadVolumeInfo();
+
   while (ReadSMARTInfo(iDriveIndex++))
     m_ucDrivesWithInfo++;
 
@@ -48,6 +75,28 @@ BOOL CSmartReader::ReadSMARTValuesForAllDrives()
 	else
 		return FALSE;
 }
+
+BOOL CSmartReader::ReadVolumeInfo()
+{
+	HANDLE hDevice=NULL;
+	TCHAR szT1[MAX_PATH]={0};
+	BOOL bRet=FALSE;
+	DWORD dwRet=0;
+
+	ZeroMemory(&m_stDiskExtents ,sizeof(VOLUME_DISK_EXTENTS) * 32);
+	for(int i=0 ;i < 32 ;i++)
+	{
+		_sntprintf(szT1, MAX_PATH, _T("\\\\.\\%c:") ,'A' + i);
+		hDevice = CreateFile(szT1, 0 , FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL , NULL);
+		if(hDevice!=INVALID_HANDLE_VALUE)
+		{
+			bRet=DeviceIoControl(hDevice,IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS ,NULL ,0 ,&m_stDiskExtents[i] ,sizeof(VOLUME_DISK_EXTENTS) ,&dwRet ,NULL);
+			CloseHandle(hDevice);
+		}
+	}
+	return bRet;
+}
+
 
 BOOL CSmartReader::ReadSMARTInfo(BYTE ucDriveIndex)
 {
@@ -72,6 +121,14 @@ BOOL CSmartReader::ReadSMARTInfo(BYTE ucDriveIndex)
 				}
 			}
 		}
+
+		STORAGE_PROPERTY_QUERY stQuery;
+		stQuery.PropertyId = StorageDeviceProperty;
+		stQuery.QueryType  = PropertyStandardQuery;
+
+		ZeroMemory(&m_stDeviceInfo[ucDriveIndex] ,sizeof(STORAGE_DEVICE_DESCRIPTOR));
+		BOOL bRet2=DeviceIoControl(hDevice,IOCTL_STORAGE_QUERY_PROPERTY ,&stQuery ,sizeof(STORAGE_PROPERTY_QUERY) ,&m_stDeviceInfo[ucDriveIndex] ,sizeof(STORAGE_DEVICE_DESCRIPTOR) ,&dwRet ,NULL);
+
 		CloseHandle(hDevice);
 	}
 	return bRet;
@@ -259,17 +316,20 @@ BOOL CSmartReader::ReadSMARTAttributes(HANDLE hDevice,UCHAR ucDriveIndex)
 		{
 			pT3=&pT1[2+ucT1*12];
 			pT2=(PDWORD)&pT3[INDEX_ATTRIB_RAW];
-			pT3[INDEX_ATTRIB_RAW+2]=pT3[INDEX_ATTRIB_RAW+3]=pT3[INDEX_ATTRIB_RAW+4]=pT3[INDEX_ATTRIB_RAW+5]=pT3[INDEX_ATTRIB_RAW+6]=0;
+//			pT3[INDEX_ATTRIB_RAW+2]=pT3[INDEX_ATTRIB_RAW+3]=pT3[INDEX_ATTRIB_RAW+4]=pT3[INDEX_ATTRIB_RAW+5]=pT3[INDEX_ATTRIB_RAW+6]=0;
 			if(pT3[INDEX_ATTRIB_INDEX]!=0)
 			{
 				pSmartValues=&m_stDrivesInfo[ucDriveIndex].m_stSmartInfo[m_stDrivesInfo[ucDriveIndex].m_ucSmartValues];
 				pSmartValues->m_ucAttribIndex=pT3[INDEX_ATTRIB_INDEX];
 				pSmartValues->m_ucValue=pT3[INDEX_ATTRIB_VALUE];
 				pSmartValues->m_ucWorst=pT3[INDEX_ATTRIB_WORST];
-				pSmartValues->m_dwAttribValue=pT2[0];
+//				pSmartValues->m_dwAttribValue=pT2[0];
+				CopyMemory(pSmartValues->m_bRawValue ,pT2 ,6);
 				pSmartValues->m_dwThreshold=MAXDWORD;
 				m_oSmartInfo[MAKELONG(pSmartValues->m_ucAttribIndex,ucDriveIndex)]=pSmartValues;
 				m_stDrivesInfo[ucDriveIndex].m_ucSmartValues++;
+
+
 			}
 		}
 	}
@@ -388,27 +448,3 @@ ST_DRIVE_INFO *CSmartReader::GetDriveInfo(BYTE ucDriveIndex)
 			}
 
 */
-
-CSmartReader2::CSmartReader2()
-{
-  m_LastUpdateTime.QuadPart = 0;
-}
-
-CSmartReader2::~CSmartReader2()
-{
-
-}
-
-// Only update the SMART info every minute
-void CSmartReader2::UpdateSMART() 
-{
-  ULARGE_INTEGER curTime;
-  GetSystemTimeAsFileTime((FILETIME *)&curTime);
-  ULONGLONG diffTime = (curTime.QuadPart - m_LastUpdateTime.QuadPart);
-  if (diffTime > (10000000*60)) {
-    ReadSMARTValuesForAllDrives();
-    m_LastUpdateTime.QuadPart = curTime.QuadPart;
-  }
-}
-CSmartReader2 g_SmartReader;
-JCCritSec g_SmartReaderCritSec;

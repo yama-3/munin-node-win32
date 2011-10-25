@@ -42,11 +42,10 @@ int HDMuninNodePlugin::GetConfig(char *buffer, int len)
   buffer += ret;
   len -= ret;
 
-  JCAutoLockCritSec lock(&g_SmartReaderCritSec);
-  g_SmartReader.UpdateSMART();
-  for (index = 0; index < g_SmartReader.m_ucDrivesWithInfo; index++) {
+  m_SmartReader.UpdateSMART();
+  for (index = 0; index < m_SmartReader.m_ucDrivesWithInfo; index++) {
     ret = _snprintf(buffer, len, "_hdd_%i_.label %s\n", index, 
-      (PCHAR)g_SmartReader.m_stDrivesInfo[index].m_stInfo.sModelNumber);
+      (PCHAR)m_SmartReader.m_stDrivesInfo[index].m_stInfo.sModelNumber);
     len -= ret;
     buffer += ret;
   }
@@ -61,18 +60,18 @@ int HDMuninNodePlugin::GetValues(char *buffer, int len)
   int index = 0;
   int ret;    
 
-  JCAutoLockCritSec lock(&g_SmartReaderCritSec);
-  g_SmartReader.UpdateSMART();
-  for (index = 0; index < g_SmartReader.m_ucDrivesWithInfo; index++) {
-    ST_DRIVE_INFO *pDriveInfo = g_SmartReader.GetDriveInfo(index);
+  m_SmartReader.UpdateSMART();
+  for (index = 0; index < m_SmartReader.m_ucDrivesWithInfo; index++) {
+    ST_DRIVE_INFO *pDriveInfo = m_SmartReader.GetDriveInfo(index);
     if (!pDriveInfo)
       continue;
 
-    ST_SMART_INFO *pSmartInfo = g_SmartReader.GetSMARTValue(pDriveInfo->m_ucDriveIndex, SMART_ATTRIB_TEMPERATURE);
+    ST_SMART_INFO *pSmartInfo = m_SmartReader.GetSMARTValue(pDriveInfo->m_ucDriveIndex, SMART_ATTRIB_TEMPERATURE);
     if (!pSmartInfo)
       continue;
 
-    ret = _snprintf(buffer, len, "_hdd_%i_.value %i\n", index, pSmartInfo->m_dwAttribValue);
+//    ret = _snprintf(buffer, len, "_hdd_%i_.value %i\n", index, pSmartInfo->m_dwAttribValue);
+    ret = _snprintf(buffer, len, "_hdd_%i_.value %i\n", index, pSmartInfo->m_bRawValue[0]);
     len -= ret;
     buffer += ret;
   }

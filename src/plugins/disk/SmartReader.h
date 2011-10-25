@@ -14,7 +14,6 @@
 
 typedef std::map<DWORD,LPVOID> SMARTINFOMAP;
 
-
 #define SMART_ATTRIB_RAW_READ_ERROR_RATE					1
 #define SMART_ATTRIB_THROUGHPUT_PERFORMANCE					2
 #define SMART_ATTRIB_SPIN_UP_TIME							3
@@ -96,11 +95,12 @@ typedef struct
 
 typedef struct
 {
-	BYTE m_ucAttribIndex;
-	DWORD m_dwAttribValue;
-	BYTE m_ucValue;
-	BYTE m_ucWorst;
+	BYTE  m_ucAttribIndex;
+//	DWORD m_dwAttribValue;
+	BYTE  m_ucValue;
+	BYTE  m_ucWorst;
 	DWORD m_dwThreshold;
+	BYTE  m_bRawValue[6];
 }ST_SMART_INFO;
 
 typedef struct
@@ -110,7 +110,7 @@ typedef struct
 	ST_SMART_INFO m_stSmartInfo[256];
 	BYTE m_ucSmartValues;
 	BYTE m_ucDriveIndex;
-  char m_csErrorString[MAX_PATH];
+	char m_csErrorString[MAX_PATH];
 }ST_DRIVE_INFO;
 
 typedef struct
@@ -137,13 +137,23 @@ public:
 	BYTE m_ucDrivesWithInfo; // Number of drives with information read
 	BYTE m_ucDrives;// Fixed HDD's
 	ST_DRIVE_INFO m_stDrivesInfo[32];
+	STORAGE_DEVICE_DESCRIPTOR m_stDeviceInfo[32];
+	VOLUME_DISK_EXTENTS m_stDiskExtents[32];
 
+	JCCritSec m_BlockCritSec;
+    // Only update the SMART info every minute
+    VOID UpdateSMART();
+
+    int AddRef();
+    int RemoveRef();
 
 private:
 	VOID InitAll();
 	VOID CloseAll();
 	VOID FillAttribGenericDetails();
 	VOID ConvertString(PBYTE pString,DWORD cbData);
+
+	BOOL ReadVolumeInfo();
 
 	BOOL ReadSMARTInfo(BYTE ucDriveIndex);
 	BOOL IsSmartEnabled(HANDLE hDevice,UCHAR ucDriveIndex);
@@ -153,19 +163,9 @@ private:
 	ST_SMART_DETAILS m_stSmartDetails;
 	SMARTINFOMAP m_oSmartInfo;
 	SMARTDETAILSMAP m_oSMARTDetails;
+
+    ULARGE_INTEGER m_LastUpdateTime;
+	int m_RefCount;
+
 };
-
-class CSmartReader2 : public CSmartReader {
-  ULARGE_INTEGER m_LastUpdateTime;
-public:
-  CSmartReader2();
-  virtual ~CSmartReader2();
-
-  // Only update the SMART info every minute
-  void UpdateSMART();
-};
-
-extern CSmartReader2 g_SmartReader;
-extern JCCritSec g_SmartReaderCritSec;
-
 #endif // !defined(AFX_SMARTREADER_H__494F15B9_0FFA_4BB4_BDD0_2D4C5129E530__INCLUDED_)

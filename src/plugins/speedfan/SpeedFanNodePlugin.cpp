@@ -20,7 +20,9 @@
 #include "SpeedFanNodePlugin.h"
 
 SpeedFanNodePlugin::SpeedFanNodePlugin()
-{	
+{
+  m_RefCount = 0;
+
   m_Listener = new ListenerThread();
   m_Listener->JCThread_AddRef();
   m_Listener->Run();
@@ -32,18 +34,22 @@ SpeedFanNodePlugin::~SpeedFanNodePlugin()
   m_Listener->JCThread_RemoveRef();
 }
 
-int SpeedFanNodePlugin::GetConfig(char *buffer, int len)
+int SpeedFanNodePlugin::GetTempConfig(char *buffer, int len)
+{
+  JCAutoLockCritSec lock(&m_NodeCritSec);
+  return GetConfig("temp" ,buffer ,len);
+}
+
+int SpeedFanNodePlugin::GetFanConfig(char *buffer, int len)
+{
+  JCAutoLockCritSec lock(&m_NodeCritSec);
+  return GetConfig("fan" ,buffer ,len);
+}
+
+int SpeedFanNodePlugin::GetConfig(char *type , char *buffer, int len)
 {
   int printCount;
-  printCount = _snprintf(buffer, len, 
-    "graph_title System temperature\n"
-    "graph_args --base 1000 -l 0\n"
-    "graph_vlabel temp in C\n"
-    "graph_category sensors\n"
-    "graph_info This graph shows the temperature in degrees Celsius.\n");
-  len -= printCount;
-  buffer += printCount;
-  
+
   JCAutoLockCritSec lock(&m_Listener->m_BlocksCritSec);
   if (m_Listener->m_Blocks.size() > 1) {
     std::vector<xAPBlock *>::iterator it = m_Listener->m_Blocks.begin();
@@ -55,7 +61,7 @@ int SpeedFanNodePlugin::GetConfig(char *buffer, int len)
         // Process the name to munin format
         std::string name = block->name;
         // Only include temp data
-        if (name.find("temp") == 0) {
+        if (name.find(type) == 0) {
           // Replace all .'s with _'s
           char *nameStr = (char *)name.c_str();
           while (*(nameStr++) != NULL)
@@ -75,7 +81,19 @@ int SpeedFanNodePlugin::GetConfig(char *buffer, int len)
   return -1;
 }
 
-int SpeedFanNodePlugin::GetValues(char *buffer, int len)
+int SpeedFanNodePlugin::GetTempValues(char *buffer, int len)
+{
+  JCAutoLockCritSec lock(&m_NodeCritSec);
+  return GetValues("temp" ,buffer ,len);
+}
+
+int SpeedFanNodePlugin::GetFanValues(char *buffer, int len)
+{
+  JCAutoLockCritSec lock(&m_NodeCritSec);
+  return GetValues("fan" ,buffer ,len);
+}
+
+int SpeedFanNodePlugin::GetValues(char *type ,char *buffer, int len)
 {
   int printCount;
   JCAutoLockCritSec lock(&m_Listener->m_BlocksCritSec);
@@ -90,26 +108,111 @@ int SpeedFanNodePlugin::GetValues(char *buffer, int len)
         // Process the name to munin format
         std::string name = block->name;
         // Only include temp data
-        if (name.find("temp") == 0) {
+        if (name.find(type) == 0) {
           // Replace all .'s with _'s
           char *nameStr = (char *)name.c_str();
           while (*(nameStr++) != NULL)
             if (*nameStr == '.')
               *nameStr = '_';
 
-          printCount = _snprintf(buffer, len, 
-            "%s.value %.2f\n"
-            "%s.warning %.2f\n", 
-            name.c_str(), block->current,
-            name.c_str(), block->warning);
-          len -= printCount;
-          buffer += printCount;
+          printCount  = _snprintf(buffer, len, "%s.value %.2f\n"  ,name.c_str(), block->current);
+		  len        -= printCount;
+	 	  buffer     += printCount;
+
+		  if(block->warning != 0)
+		  {
+			  printCount  = _snprintf(buffer, len, "%s.warning %.2f\n",name.c_str(), block->warning);
+			  len        -= printCount;
+			  buffer     += printCount;
+		  }
         }
       }
     }
     strncat(buffer, ".\n", len);
     return 0;
   }
+  return -1;
+}
+
+
+int SpeedFanNodePlugin::GetConfig(char *buffer, int len)
+{
+  //int printCount;
+  //printCount = _snprintf(buffer, len, 
+  //  "graph_title System temperature\n"
+  //  "graph_args --base 1000 -l 0\n"
+  //  "graph_vlabel temp in C\n"
+  //  "graph_category sensors\n"
+  //  "graph_info This graph shows the temperature in degrees Celsius.\n");
+  //len -= printCount;
+  //buffer += printCount;
+  //
+  //JCAutoLockCritSec lock(&m_Listener->m_BlocksCritSec);
+  //if (m_Listener->m_Blocks.size() > 1) {
+  //  std::vector<xAPBlock *>::iterator it = m_Listener->m_Blocks.begin();
+  //  // Skip first element (header)
+  //  it++;
+  //  for (; it != m_Listener->m_Blocks.end(); it++) {
+  //    xAPBlockData *block = dynamic_cast<xAPBlockData *>(*it);
+  //    if (block != NULL) {
+  //      // Process the name to munin format
+  //      std::string name = block->name;
+  //      // Only include temp data
+  //      if (name.find("temp") == 0) {
+  //        // Replace all .'s with _'s
+  //        char *nameStr = (char *)name.c_str();
+  //        while (*(nameStr++) != NULL)
+  //          if (*nameStr == '.')
+  //            *nameStr = '_';
+
+  //        printCount = _snprintf(buffer, len, "%s.label %s\n", name.c_str(), block->id.c_str());
+  //        len -= printCount;
+  //        buffer += printCount;
+  //      }
+  //    }
+  //  }
+  //  strncat(buffer, ".\n", len);
+  //  return 0;
+  //}
+
+  return -1;
+}
+
+int SpeedFanNodePlugin::GetValues(char *buffer, int len)
+{
+  //int printCount;
+  //JCAutoLockCritSec lock(&m_Listener->m_BlocksCritSec);
+  //
+  //if (m_Listener->m_Blocks.size() > 1) {
+  //  std::vector<xAPBlock *>::iterator it = m_Listener->m_Blocks.begin();
+  //  // Skip first element (header)
+  //  it++;
+  //  for (; it != m_Listener->m_Blocks.end(); it++) {
+  //    xAPBlockData *block = dynamic_cast<xAPBlockData *>(*it);
+  //    if (block != NULL) {
+  //      // Process the name to munin format
+  //      std::string name = block->name;
+  //      // Only include temp data
+  //      if (name.find("temp") == 0) {
+  //        // Replace all .'s with _'s
+  //        char *nameStr = (char *)name.c_str();
+  //        while (*(nameStr++) != NULL)
+  //          if (*nameStr == '.')
+  //            *nameStr = '_';
+
+  //        printCount = _snprintf(buffer, len, 
+  //          "%s.value %.2f\n"
+  //          "%s.warning %.2f\n", 
+  //          name.c_str(), block->current,
+  //          name.c_str(), block->warning);
+  //        len -= printCount;
+  //        buffer += printCount;
+  //      }
+  //    }
+  //  }
+  //  strncat(buffer, ".\n", len);
+  //  return 0;
+  //}
   return -1;
 }
 

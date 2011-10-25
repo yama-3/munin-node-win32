@@ -8,7 +8,7 @@
 
 ; The name of the installer
 !define VERSION 1.6.1.0
-Name "Munin Node for Windows ${VERSION} (Beta)"
+Name "Munin Node for Windows ${VERSION} (TPF-IT)"
 
 ; The file to write
 OutFile "munin-node-win32-${VERSION}-installer.exe"
@@ -54,6 +54,7 @@ Section "Munin Node for Windows (required)"
   
   ; Put file there
   File "..\Release\munin-node.exe"
+  File "..\bin\XEventMessage.dll"
   File "..\munin-node.ini"
   
   ; Write the installation path into the registry
@@ -120,6 +121,7 @@ Section "Uninstall"
 
   ; Remove files and uninstaller
   Delete $INSTDIR\munin-node.exe
+  Delete $INSTDIR\XEventMessage.dll
   Delete $INSTDIR\uninstall.exe
 
   ; Remove shortcuts, if any

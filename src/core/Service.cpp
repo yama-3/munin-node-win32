@@ -300,12 +300,13 @@ void CService::ShowMessage(LPCTSTR szMessage)
 
 void CService::LogEvent(LPCSTR pFormat, ...)
 {
-  char chMsg[512];    
+#ifdef _DEBUG
+  char chMsg[1024];    
   va_list pArg;
   va_start(pArg, pFormat);
-  _vsnprintf(chMsg, 512, pFormat, pArg);
+  _vsnprintf(chMsg, 1024, pFormat, pArg);
   va_end(pArg);
-  chMsg[511] = 0; 
+  chMsg[1023] = 0; 
 
   if (m_bService)
   {
@@ -317,6 +318,7 @@ void CService::LogEvent(LPCSTR pFormat, ...)
     printf(chMsg);
     printf("\n");
   }
+#endif
 }
 
 void CService::LogError(LPCSTR pFormat, ...)

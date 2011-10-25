@@ -22,6 +22,7 @@ typedef struct
 {
 	LARGE_INTEGER liIdleTime;
 	DWORD dwSpare[76];
+	DWORD dwSpare_[12];
 } SYSTEM_PERFORMANCE_INFORMATION;
 
 typedef struct

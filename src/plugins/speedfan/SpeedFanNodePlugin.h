@@ -14,7 +14,21 @@ public:
   virtual int GetValues(char *buffer, int len);
   virtual bool IsThreadSafe() { return true; };
 
+  int AddRef()    {return m_RefCount++; };
+  int RemoveRef() {return --m_RefCount; };
+
+  int GetTempConfig(char *buffer, int len);
+  int GetFanConfig(char *buffer, int len);
+  int GetConfig(char *type, char *buffer, int len);
+
+  int GetTempValues(char *buffer, int len);
+  int GetFanValues(char *buffer, int len);
+  int GetValues(char *type, char *buffer, int len);
+
 private:
+  int        m_RefCount;
+  JCCritSec  m_NodeCritSec;
+
   class xAPBlock
   {
   public:
